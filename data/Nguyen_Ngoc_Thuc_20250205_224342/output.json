@@ -1,0 +1,64 @@
+{
+    "customer_name": "Nguyễn Ngọc Thức",
+    "invoice_date": "07/10/2018",
+    "medical_facility": {
+        "department_name": "Khoa Hồi sức Cấp cứu",
+        "hospital_name": "Bệnh viện Xây dựng"
+    },
+    "doctor": {
+        "title": "Bác sĩ",
+        "name": "Dương Ngọc Tùng"
+    },
+    "medications": [
+        {
+            "name": "Swich",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Desitin",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Unlock",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Datin",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Loplosin",
+            "quantity": "30",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Simplexin",
+            "quantity": "30",
+            "dosage_form": "viên",
+            "dosage_unit": "mg",
+            "unit_price": null,
+            "total_price": null
+        }
+    ],
+    "total_amount": null,
+    "currency": "VND"
+}

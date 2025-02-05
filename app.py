@@ -8,6 +8,10 @@ from utility_functions import traditional_scan, deep_learning_scan, manual_scan,
 import requests
 import json
 import base64
+import pandas as pd
+from dotenv import load_dotenv
+from datetime import datetime
+import unicodedata
 
 # Path to the pre-downloaded model files
 model_mbv3_path = os.path.join(os.getcwd(), "model_mbv3_iou_mix_2C049.pth")
@@ -23,6 +27,11 @@ st.set_page_config(
     },
 )
 
+# Create the main data folder
+data_folder = os.path.join(os.getcwd(), "data")
+os.makedirs(data_folder, exist_ok=True)
+
+
 @st.cache_resource
 def load_model_DL_MBV3(num_classes=2, device=torch.device("cpu"), img_size=384):
     checkpoint_path = model_mbv3_path
@@ -34,6 +43,7 @@ def load_model_DL_MBV3(num_classes=2, device=torch.device("cpu"), img_size=384):
     with torch.no_grad():
         _ = model(torch.randn((1, 3, img_size, img_size)))
     return model
+
 
 @st.cache_resource
 def load_model_DL_R50(num_classes=2, device=torch.device("cpu"), img_size=384):
@@ -47,11 +57,13 @@ def load_model_DL_R50(num_classes=2, device=torch.device("cpu"), img_size=384):
         _ = model(torch.randn((1, 3, img_size, img_size)))
     return model
 
-from dotenv import load_dotenv
-import os
+
+# Nạp biến môi trường từ .env
+load_dotenv()
+
 
 def extract_invoice_data_with_gpt4_vision(image_path, prompt):
-    api_key = os.getenv("OPENAI_API_KEY")  # Lấy API key từ biến môi trường
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("API key is missing! Please set it in the .env file.")
 
@@ -81,13 +93,33 @@ def extract_invoice_data_with_gpt4_vision(image_path, prompt):
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data)
 
+        print(f"API Response Status Code: {response.status_code}")
+        print(f"API Response Content: {response.text}")  # Log full response
+
         if response.status_code == 200:
-            response_json = response.json()
-            print("Full Response:", json.dumps(response_json, indent=2))  # Log full response for debugging
+            response_text = response.text.strip()
+            if not response_text:
+                print("Error: Empty response from API")
+                return None
+
             try:
-                return json.loads(response_json["choices"][0]["message"]["content"])
-            except (KeyError, json.JSONDecodeError):
-                print("Error parsing response content:", response_json)
+                response_json = response.json()
+                print("Full Response:", json.dumps(response_json, indent=2))
+
+                if "choices" in response_json and len(response_json["choices"]) > 0:
+                    extracted_data_str = response_json["choices"][0]["message"]["content"]
+
+                    # Clean JSON response
+                    if extracted_data_str.startswith("```json"):
+                        extracted_data_str = extracted_data_str.replace("```json", "").replace("```", "").strip()
+
+                    extracted_data = json.loads(extracted_data_str)  # Convert to Python dict
+                    return extracted_data
+                else:
+                    print("Error: 'choices' not found in response.")
+                    return None
+            except (KeyError, json.JSONDecodeError) as e:
+                print(f"Error parsing response content: {str(e)}")
                 return None
         else:
             print(f"Error: {response.status_code}, Response: {response.text}")
@@ -97,9 +129,20 @@ def extract_invoice_data_with_gpt4_vision(image_path, prompt):
         print(f"Exception occurred: {str(e)}")
         return None
 
+
+
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return ''.join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+
 def display_extracted_data_as_json(extracted_data):
     st.markdown("### Extracted Invoice Data (JSON)")
-    st.json(extracted_data)
+    if extracted_data:
+        st.json(extracted_data)
+    else:
+        st.write("No data available.")
+
 
 def display_extracted_data_as_table(extracted_data):
     st.markdown("### Extracted Invoice Data (Table)")
@@ -107,36 +150,61 @@ def display_extracted_data_as_table(extracted_data):
         st.write("No data available.")
         return
 
-    st.write("**Customer Name:**", extracted_data.get("customer_name", "N/A"))
-    st.write("**Invoice Date:**", extracted_data.get("invoice_date", "N/A"))
+    # Customer Information
+    customer_name = extracted_data.get("customer_name", "N/A")
+    invoice_date = extracted_data.get("invoice_date", "N/A")
+    st.write("**Customer Name:**", customer_name)
+    st.write("**Invoice Date:**", invoice_date)
 
+    # Medical Facility Information
     medical_facility = extracted_data.get("medical_facility", {})
-    st.write("**Department Name:**", medical_facility.get("department_name", "N/A"))
-    st.write("**Hospital Name:**", medical_facility.get("hospital_name", "N/A"))
+    department_name = medical_facility.get("department_name", "N/A")
+    hospital_name = medical_facility.get("hospital_name", "N/A")
+    st.write("**Department Name:**", department_name)
+    st.write("**Hospital Name:**", hospital_name)
 
+    # Doctor Information
     doctor = extracted_data.get("doctor", {})
-    st.write("**Doctor Title:**", doctor.get("title", "N/A"))
-    st.write("**Doctor Name:**", doctor.get("name", "N/A"))
+    doctor_title = doctor.get("title", "N/A")
+    doctor_name = doctor.get("name", "N/A")
+    st.write("**Doctor Title:**", doctor_title)
+    st.write("**Doctor Name:**", doctor_name)
 
+    # Medications Information
     medications = extracted_data.get("medications", [])
     if medications:
         st.write("**Medications:**")
-        for med in medications:
-            st.write(f"- **Name:** {med.get('name', 'N/A')}, "
-                     f"**Quantity:** {med.get('quantity', 'N/A')}, "
-                     f"**Dosage Form:** {med.get('dosage_form', 'N/A')}, "
-                     f"**Dosage Unit:** {med.get('dosage_unit', 'N/A')}, "
-                     f"**Unit Price:** {med.get('unit_price', 'N/A')}, "
-                     f"**Total Price:** {med.get('total_price', 'N/A')}.")
+        # Prepare data for medications table
+        medications_data = []
+        for idx, med in enumerate(medications, start=1):
+            medications_data.append({
+                "No.": idx,
+                "Name": med.get('name', 'N/A'),
+                "Quantity": med.get('quantity', 'N/A'),
+                "Dosage Form": med.get('dosage_form', 'N/A'),
+                "Dosage Unit": med.get('dosage_unit', 'N/A'),
+                "Unit Price": med.get('unit_price', 'N/A'),
+                "Total Price": med.get('total_price', 'N/A'),
+            })
+
+        # Display medications as a table using st.dataframe()
+        meds_df = pd.DataFrame(medications_data)
+        st.dataframe(meds_df, use_container_width=True)  # Avoid showing index column
     else:
         st.write("No medications data available.")
 
-    st.write("**Total Amount:**", extracted_data.get("total_amount", "N/A"))
+    # Total Amount
+    total_amount = extracted_data.get("total_amount", "N/A")
+    currency = extracted_data.get("currency", "N/A")
+    st.write("**Total Amount:**", total_amount)
+    st.write("**Currency:**", currency)
+
 
 def main(input_file, procedure, image_size=384):
     file_bytes = np.asarray(bytearray(input_file.read()), dtype=np.uint8)  # Read bytes
     image = cv2.imdecode(file_bytes, 1)[:, :, ::-1]  # Decode and convert to RGB
     output = None
+    extracted_data = None  # Ensure extracted_data is initialized
 
     st.write("Input image size:", image.shape)
 
@@ -162,46 +230,50 @@ def main(input_file, procedure, image_size=384):
             st.image(output, channels="RGB", use_container_width=True)
 
     if output is not None:
+        # Create a patient-specific folder based on patient name and timestamp
+        patient_name = "Unknown_Patient"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        patient_folder = os.path.join(data_folder, f"{patient_name}_{timestamp}")
+        os.makedirs(patient_folder, exist_ok=True)
+
         # Save the scanned image temporarily
-        scanned_image_path = os.path.join(os.getcwd(), "scanned_image.jpg")
+        scanned_image_path = os.path.join(patient_folder, "scanned_image.jpg")
         cv2.imwrite(scanned_image_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
 
         # Define a prompt for GPT-4 Vision
-        prompt = """        
-You are an AI assistant tasked with extracting structured information from an invoice image. 
-If any field cannot be identified clearly from the image, make a reasonable guess based on the context, but mark it as 'estimated'. 
+        with open("prompt.txt", "r", encoding="utf-8") as file:
+            prompt = file.read()
 
-JSON structure:
-{
-   "customer_name": "string or 'estimated'",
-   "invoice_date": "string (DD/MM/YYYY) or 'estimated'",
-   "medical_facility": {
-      "department_name": "string or 'estimated'",
-      "hospital_name": "string or 'estimated'"
-   },
-   "doctor": {
-      "title": "string or 'estimated'",
-      "name": "string or 'estimated'"
-   },
-   "medications": [
-      {
-         "name": "string or 'estimated'",
-         "quantity": "string or 'estimated'",
-         "dosage_form": "string or 'estimated'",
-         "dosage_unit": "string or 'estimated'",
-         "unit_price": "string or 'estimated'",
-         "total_price": "string or 'estimated'"
-      }
-   ],
-   "total_amount": "string or 'estimated'"
-}
-Only return the JSON object. Do not include additional text.
-        """
+        # Check if extracted data is already stored in session state
+        if "extracted_data" not in st.session_state:
+            extracted_data = extract_invoice_data_with_gpt4_vision(scanned_image_path, prompt)
+            st.session_state.extracted_data = extracted_data
+        else:
+            extracted_data = st.session_state.extracted_data
 
-        # Call GPT-4 Vision API with the scanned image and prompt
-        extracted_data = extract_invoice_data_with_gpt4_vision(scanned_image_path, prompt)
-
+        # Ensure extracted_data is valid and is not None
         if extracted_data:
+            # Use customer_name from extracted_data if available, else fallback to "Unknown Patient"
+            customer_name = extracted_data.get("customer_name", "Unknown Patient")
+
+            # Check if customer_name is None, and use a fallback value if necessary
+            if customer_name is None:
+                customer_name = "Unknown Patient"
+
+            customer_name = remove_accents(customer_name).replace(" ", "_")  # Remove accents and replace spaces
+
+            # Create folder with the patient's name and timestamp
+            patient_folder = os.path.join(data_folder, f"{customer_name}_{timestamp}")
+            os.makedirs(patient_folder, exist_ok=True)
+
+            # Save images and JSON in the created folder
+            scanned_image_path = os.path.join(patient_folder, "scanned_image.jpg")
+            cv2.imwrite(scanned_image_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+
+            json_file_path = os.path.join(patient_folder, "output.json")
+            with open(json_file_path, "w", encoding="utf-8") as json_file:
+                json.dump(extracted_data, json_file, ensure_ascii=False, indent=4)
+
             # Allow users to toggle between JSON and Table view
             display_mode = st.radio("Select Display Mode:", ("JSON", "Table"), index=0)
 
@@ -212,16 +284,19 @@ Only return the JSON object. Do not include additional text.
 
     return output
 
+
 IMAGE_SIZE = 384
 model_mbv3 = load_model_DL_MBV3(img_size=IMAGE_SIZE)
 model_r50 = load_model_DL_R50(img_size=IMAGE_SIZE)
 
 st.markdown("<h1 style='text-align: center;'>Medical Invoice Extraction Tool</h1>", unsafe_allow_html=True)
 
-procedure_selected = st.radio("Select Scanning Procedure:", ("Traditional", "Deep Learning", "Manual"), index=1, horizontal=True)
+procedure_selected = st.radio("Select Scanning Procedure:", ("Traditional", "Deep Learning", "Manual"), index=1,
+                              horizontal=True)
 
 if procedure_selected == "Deep Learning":
-    model_selected = st.radio("Select Document Segmentation Backbone Model:", ("MobilenetV3-Large", "ResNet-50"), horizontal=True)
+    model_selected = st.radio("Select Document Segmentation Backbone Model:", ("MobilenetV3-Large", "ResNet-50"),
+                              horizontal=True)
 
 tab1, tab2 = st.tabs(["Upload a Document", "Capture Document"])
 

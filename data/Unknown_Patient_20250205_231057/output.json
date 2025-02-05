@@ -1,0 +1,51 @@
+{
+    "customer_name": null,
+    "invoice_date": "07/10/2018",
+    "medical_facility": {
+        "department_name": "Khoa Hồi sức Cấp cứu",
+        "hospital_name": "Bệnh viện Xây dựng"
+    },
+    "doctor": {
+        "title": "Bác sĩ",
+        "name": "Dương Ngọc Tùng"
+    },
+    "medications": [
+        {
+            "name": "Swich 200mg",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Destind 5mg",
+            "quantity": "10",
+            "dosage_form": "viên",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Terpin codein 10mg",
+            "quantity": "20",
+            "dosage_form": "viên",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Orientmax 40mg",
+            "quantity": "30",
+            "dosage_form": "viên",
+            "unit_price": null,
+            "total_price": null
+        },
+        {
+            "name": "Xuc ming viên T-B",
+            "quantity": "1",
+            "dosage_form": "chai",
+            "unit_price": null,
+            "total_price": null
+        }
+    ],
+    "total_amount": null,
+    "currency": "VND"
+}
